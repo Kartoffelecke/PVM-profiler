@@ -1,9 +1,17 @@
 
+// global variables that are set if the correction macro is used
 var l_cor_x = 0;
 var r_cor_x = 0;
-var firstRun = true;
+
+var l_cor_bg = 0;
+var r_cor_bg = 0;
+
+// these need to be global so they stay when a correction is applied
+var l_bg_end = 0;
+var r_bg_start = 0;
 
 
+// main function to identify peaks and background
 function findValues() {
 	Overlay.clear;	
 	Plot.getValues(x, y);
@@ -18,7 +26,6 @@ function findValues() {
 
 		// find maximum of left half
 		l_max_a = Array.findMaxima(left, 100); //get index of all maxima
-		print("left maximum index: "+l_max_a[0]);
 		// exit script if no peak was found
 		if (l_max_a.length == 0) {
 			exit("could not find a left peak. Make sure the middle of the line is in the middle of the PVM.");
@@ -36,48 +43,44 @@ function findValues() {
 				break;
 			}
 		}
-//		print("corrected l_max_index : "+l_max_index);
 		
 	}
 
-		// get x and y values for the index
+	// get x and y values for the index
 	l_max_x = x[l_max_index];
-//	print("l_max_x : "+l_max_x);
 	l_max_y = y[l_max_index];
-//	print("l_max_y : "+l_max_y);
-	
-	// Get the mean fluorescence in left background
-	l_bg = newArray(0);
-	l_bg_end = 0; //index for the end of background area
-	
-	for (i=0; i<x.length; i++) {
-		// if the x pos of index i is too close to left peak, exit loop
-		if (x[i] > l_max_x-peak_dist) {
-			l_bg_end = i;
-			break;
-		} else { // if not add y value to background array
-			// create a temp. array containing the y value of the current index i
-			tmp = newArray(1);
-			tmp[0] = y[i];
-			// add that array to the l_bg array
-			l_bg = Array.concat(l_bg,tmp);
-	
+
+	if (l_cor_bg == 0) { // if no correction is applied to left bg
+		// Get the mean fluorescence in left background
+		l_bg = newArray(0);
+		
+		for (i=0; i<x.length; i++) {
+			// if the x pos of index i is too close to left peak, exit loop
+			if (x[i] > l_max_x-peak_dist) {
+				l_bg_end = i;
+				break;
+			} else { // if not add y value to background array
+				// create a temp. array containing the y value of the current index i
+				tmp = newArray(1);
+				tmp[0] = y[i];
+				// add that array to the l_bg array
+				l_bg = Array.concat(l_bg,tmp);
+		
+			}
 		}
+	Array.getStatistics(l_bg, min, max, l_bg_mean, stdDev);
+	} else { // if correction is applied just set it
+		l_bg_mean = l_cor_bg;
 	}
 	
-	
-	Array.getStatistics(l_bg, min, max, l_bg_mean, stdDev);
-//	print("l_bg_mean : "+l_bg_mean);
-//	print("l_bg_end  :  "+x[l_bg_end]);
 	
 
 	//repeat the same for the right side
 	if (r_cor_x == 0) {
-		print("length of y: " + y.length);
+
 		right = Array.slice(y,y.length/2+1,y.length);
 		right_x = Array.slice(x,x.length/2+1,x.length);
-		Array.print(right_x);
-		Array.print(right);
+
 		r_max_a = Array.findMaxima(right, 100);
 		
 		// exit script if no peak was found
@@ -96,7 +99,6 @@ function findValues() {
 				break;
 			}
 		}
-//		print("corrected r_max_index : "+r_max_index);		
 	}
 
 	
@@ -104,31 +106,30 @@ function findValues() {
 	r_max_x = x[r_max_index]; 
 	r_max_y = y[r_max_index];	
 
-	
-	// Get the mean fluorescence in right background
-	r_bg = newArray(0);
-	r_bg_start = 0; //index for the start of background area
-	
-	for (i=0; i<x.length; i++) {
-		// if the x pos of index i is too close to left peak, exit loop
-		if (x[i] < r_max_x+peak_dist) {
-			continue;
-		} else { // if not add y value to background array
-			// create a temp. array containing the y value of the current index i
-			tmp = newArray(1);
-			tmp[0] = y[i];
-			// add that array to the l_bg array
-			r_bg = Array.concat(r_bg,tmp);
-	
-			//remember start of bg area
-			if (r_bg_start == 0) {r_bg_start = i;}
+	if (r_cor_bg == 0) {
+		// Get the mean fluorescence in right background
+		r_bg = newArray(0);
+		
+		for (i=0; i<x.length; i++) {
+			// if the x pos of index i is too close to left peak, exit loop
+			if (x[i] < r_max_x+peak_dist) {
+				continue;
+			} else { // if not add y value to background array
+				// create a temp. array containing the y value of the current index i
+				tmp = newArray(1);
+				tmp[0] = y[i];
+				// add that array to the l_bg array
+				r_bg = Array.concat(r_bg,tmp);
+		
+				//remember start of bg area
+				if (r_bg_start == 0) {r_bg_start = i;}
+			}
 		}
+
+		Array.getStatistics(r_bg, min, max, r_bg_mean, stdDev);
+	} else {
+		r_bg_mean = r_cor_bg;
 	}
-	
-	
-	Array.getStatistics(r_bg, min, max, r_bg_mean, stdDev);
-//	print("Right bg mean: "+r_bg_mean);
-//	print("Left bg start "+x[r_bg_start]);
 
 
 	// mark the halfline
@@ -194,19 +195,37 @@ function findValues() {
 	String.copy(output);	
 }
 
-// this macro allows correction of the peaks. Basically it checks wether your mouse is on the left or
-// the right half of the plot and then passes its x value to the main findValues function
+// this macro allows correction of the peaks. 
 macro "correct_l_peak [c]" {
 	getCursorLoc(cur_x, cur_y, cur_z, flags); //get mouse pos
 	toScaled(cur_x, cur_y); // convert to plot coordinates
-	
-	Plot.getValues(x, y);
-	if (cur_x < x[x.length-1]/2) {
+
+	Plot.getLimits(xMin, xMax, yMin, yMax);
+	if (cur_x < xMax/2) {
 		// cursor is on the left half
-		l_cor_x = cur_x;
+		l_cor_x = cur_x;	
+		
 	} else {
 		// cursor is on the right half
 		r_cor_x = cur_x;		
+	}
+	findValues();
+	
+}
+
+// this macro allows correction of the backgrounds. 
+macro "correct_l_peak [v]" {
+
+	getCursorLoc(cur_x, cur_y, cur_z, flags); //get mouse pos
+	toScaled(cur_x, cur_y); // convert to plot coordinates
+
+	Plot.getLimits(xMin, xMax, yMin, yMax);
+	if (cur_x < xMax/2) {
+		// cursor is on the left half
+		l_cor_bg = cur_y;
+	} else {
+		// cursor is on the right half
+		r_cor_bg = cur_y;	
 	}
 	findValues();
 	
@@ -221,6 +240,10 @@ macro "PVM_intensity [q]"{
 		
 	l_cor_x = 0;
 	r_cor_x = 0;
+	l_cor_bg = 0;
+	r_cor_bg = 0;
+	l_bg_end = 0;
+	r_bg_start = 0;
 	run("Plot Profile");
 	
 	findValues();
