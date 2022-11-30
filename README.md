@@ -1,5 +1,5 @@
 # PVM-profiler
-simple, unpolished Fiji script to meassure T. gondii PVM fluorescence intensity.
+A Fiji script to facilitate the meassurment of _T. gondii_ PVM fluorescence intensities.
 
 ## Goal of the script
 Fluorescence intensity at the T. gondii PVM is usually meassured manually by drawing to line profiles through the PV and taking the mean of all peaks substracted by the background, which is defined as the average fluorescence before the peak. This method was described by Khaminets et al. 2010 (doi.org/10.1111/j.1462-5822.2010.01443.x). This is a labor intensive process, since every point has to be manually marked and the intensity values entered into excel or some other calculation software. 
